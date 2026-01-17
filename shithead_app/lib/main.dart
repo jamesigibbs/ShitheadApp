@@ -57,6 +57,7 @@ class _GameScreenState extends State<GameScreen> {
   late List<PlayingCard> hand;
   Set<int> selectedCards = {};
   List<PlayingCard> discardPile = [];
+  String errorMessage = '';
 
   @override
   void initState() {
@@ -98,6 +99,17 @@ class _GameScreenState extends State<GameScreen> {
     deck.shuffle(Random());
   }
 
+  bool canPlayCard(PlayingCard card) {
+    // If discard pile is empty, any card can be played
+    if (discardPile.isEmpty) return true;
+
+    // Get the top card of the discard pile
+    PlayingCard topCard = discardPile.last;
+
+    // Card must be equal or higher value
+    return card.value >= topCard.value;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -107,6 +119,22 @@ class _GameScreenState extends State<GameScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              if (errorMessage.isNotEmpty)
+                Container(
+                  padding: EdgeInsets.all(8),
+                  margin: EdgeInsets.only(bottom: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    errorMessage,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
               // Discard Pile
               Text(
                 'Discard Pile: ${discardPile.length} cards',
@@ -156,6 +184,18 @@ class _GameScreenState extends State<GameScreen> {
                           .map((index) => hand[index])
                           .toList();
 
+                      // Check if all cards are valid
+                      bool allValid = cardsToPlay.every(
+                        (card) => canPlayCard(card),
+                      );
+
+                      if (!allValid) {
+                        // Show error message
+                        errorMessage =
+                            'Cannot play! Card must be equal or higher.';
+                        return; // Exit without playing
+                      }
+
                       // Add them to discard pile
                       discardPile.addAll(cardsToPlay);
 
@@ -169,6 +209,7 @@ class _GameScreenState extends State<GameScreen> {
 
                       // Clear selection
                       selectedCards = {};
+                      errorMessage = '';
                     });
                   },
                   child: Text('Play Selected Cards'),
@@ -186,11 +227,27 @@ class _GameScreenState extends State<GameScreen> {
 
     return GestureDetector(
       onTap: () {
+
+        if (index == -1) return;
+
         setState(() {
           if (isSelected) {
+            // Deselect this card
             selectedCards.remove(index);
           } else {
-            selectedCards.add(index);
+            // Selecting a new card
+            if (selectedCards.isEmpty) {
+              // First card - always allow
+              selectedCards.add(index);
+            } else {
+              // Check if same rank as already selected cards
+              PlayingCard firstSelectedCard = hand[selectedCards.first];
+              if (card.rank == firstSelectedCard.rank) {
+                // Same rank - allow selection
+                selectedCards.add(index);
+              }
+              // Different rank - do nothing (can't select)
+            }
           }
         });
       },
